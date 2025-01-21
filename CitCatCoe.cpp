@@ -84,6 +84,18 @@ public:
             }
         }
     }
+    bool isFull()
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                if (board[i][j] == '-')
+                    return false;
+            }
+        }
+        return true;
+    }
     bool fillCell(int row, int col, char player)
     {
         if (board[row][col] == '-')
@@ -311,15 +323,16 @@ int main(int argc, char *argv[])
     // load cit_win image
     SDL_Rect cit_win_Rect;
     textures["cit_win"] = loadImage(renderer, "assets/cit_win.bmp", cit_win_Rect, 40, 250, 180, 90);
+
     // load coe image
     SDL_Rect coe_Rect;
     textures["coe"] = loadImage(renderer, "assets/coe.bmp", coe_Rect, 570, 255, 180, 90);
     // load coe_turn image
     SDL_Rect coe_turn_Rect;
-    textures["coe_turn"] = loadImage(renderer, "assets/coe_turn.bmp", coe_turn_Rect, 570, 255, 180, 90);
+    textures["coe_turn"] = loadImage(renderer, "assets/coe_turn.bmp", coe_Rect, 570, 255, 180, 90);
     // load coe_win image
     SDL_Rect coe_win_Rect;
-    textures["coe_win"] = loadImage(renderer, "assets/coe_win.bmp", coe_win_Rect, 570, 255, 180, 90);
+    textures["coe_win"] = loadImage(renderer, "assets/coe_win.bmp", coe_Rect, 570, 255, 180, 90);
     // error check for all the immages turned into textures
     for (auto &pair : textures)
     {
@@ -365,48 +378,38 @@ int main(int argc, char *argv[])
 
                 if ((currentState == STATE_ONE_GAME || currentState == STATE_TWO_GAME))
                 {
-                    if (backButton.isClicked(mouseX, mouseY))
-                    {
-                        currentState = STATE_HOMEPAGE;
-                        // reset reffrence board and player order if gone back to homepage
-                        refBoard.resetBoard('-');
-                        winner = '#';
-                        player = 'o';
-                    }
-                    if (playAgainButton.isClicked(mouseX, mouseY))
+                    // reset reffrence board and player order if play again or back button button pressed
+                    if (playAgainButton.isClicked(mouseX, mouseY) || backButton.isClicked(mouseX, mouseY))
                     {
                         refBoard.resetBoard('-');
                         winner = '#';
                         player = 'o';
+                        // if back button pressed chang state to homepaage
+                        if (backButton.isClicked(mouseX, mouseY))
+                        {
+                            currentState = STATE_HOMEPAGE;
+                        }
                     }
-                    if (mainBoard.isClicked(mouseX, mouseY))
+                    if (mainBoard.isClicked(mouseX, mouseY) && winner == '#')
                     {
                         int row, col;
-                        if (winner == '#')
+                        mainBoard.findCell(mouseX, mouseY, row, col);
+                        if (refBoard.fillCell(row, col, player))
                         {
-                            mainBoard.findCell(mouseX, mouseY, row, col);
-                            if (refBoard.fillCell(row, col, player))
+                            if (refBoard.checkWin(player))
                             {
-                                if (refBoard.checkWin(player))
-                                {
-                                    winner = player;
-                                }
-                                player = (player == 'o') ? 'x' : 'o';
+                                winner = player;
                             }
+                            player = (player == 'o') ? 'x' : 'o';
                         }
                     }
                 }
                 if (currentState == STATE_HOMEPAGE)
                 {
-
                     if (onePlayerButton.isClicked(mouseX, mouseY))
-                    {
                         currentState = STATE_ONE_GAME;
-                    }
                     if (twoPlayerButton.isClicked(mouseX, mouseY))
-                    {
                         currentState = STATE_TWO_GAME;
-                    }
                 }
             }
         }
@@ -415,10 +418,13 @@ int main(int argc, char *argv[])
 
         if (currentState == STATE_HOMEPAGE)
         {
-            SDL_RenderCopy(renderer, textures["title"], nullptr, &title_Rect);               // title
-            SDL_RenderCopy(renderer, textures["cat_stand"], nullptr, &cat_stand_Rect);       // cat stand
-            SDL_RenderCopy(renderer, textures["twoPlayer_BG"], nullptr, &twoPlayer_BG_Rect); // two player bg
-
+            // render title
+            SDL_RenderCopy(renderer, textures["title"], nullptr, &title_Rect);
+            // render cat stand img
+            SDL_RenderCopy(renderer, textures["cat_stand"], nullptr, &cat_stand_Rect);
+            // render two player bg
+            SDL_RenderCopy(renderer, textures["twoPlayer_BG"], nullptr, &twoPlayer_BG_Rect);
+            // render game modes buttons
             onePlayerButton.renderButton(renderer);
             twoPlayerButton.renderButton(renderer);
         }
@@ -427,47 +433,44 @@ int main(int argc, char *argv[])
         }
         else if (currentState == STATE_TWO_GAME)
         {
-            // draw the 3x3 board
+            // render the 3x3 board
             mainBoard.renderBoard(renderer, refBoard.board, winner);
+            // render back button bg
+            SDL_RenderCopy(renderer, textures["backButton_BG"], nullptr, &backButton_BG_Rect);
+            backButton.renderButton(renderer);
+            // render cat sit img
+            SDL_RenderCopy(renderer, textures["cat_sit"], nullptr, &cat_sit_Rect);
 
-            SDL_RenderCopy(renderer, textures["backButton_BG"], nullptr, &backButton_BG_Rect); // back button bg
-            SDL_RenderCopy(renderer, textures["cat_sit"], nullptr, &cat_sit_Rect);             // cat sit
-
-            if (winner == '#')
+            if (refBoard.isFull())
             {
-                if (player == 'o')
-                {
-                    SDL_RenderCopy(renderer, textures["cit_turn"], nullptr, &cit_turn_Rect); // cit's turn
-                    SDL_RenderCopy(renderer, textures["coe"], nullptr, &coe_Rect);           // coe
-                }
-                else
-                {
-                    SDL_RenderCopy(renderer, textures["cit"], nullptr, &cit_Rect);           // cit
-                    SDL_RenderCopy(renderer, textures["coe_turn"], nullptr, &coe_turn_Rect); // coe's turn
-                }
+                // render the play again button if there is a draw
+                SDL_RenderCopy(renderer, textures["again"], nullptr, &again_Rect); // again
+                playAgainButton.renderButton(renderer);
+
+                SDL_RenderCopy(renderer, textures["cit"], nullptr, &cit_Rect); // cit
+                SDL_RenderCopy(renderer, textures["coe"], nullptr, &coe_Rect); // coe
             }
             else
             {
-                SDL_RenderCopy(renderer, textures["again"], nullptr, &again_Rect); // again
-                playAgainButton.renderButton(renderer);
-                if (winner == 'o')
+                if (winner == '#')
                 {
-                    SDL_RenderCopy(renderer, textures["cit_win"], nullptr, &cit_win_Rect); // cit wins
-                    SDL_RenderCopy(renderer, textures["coe"], nullptr, &coe_Rect);         // coe
+                    // if there is no winner render the players depending on their turn
+                    SDL_RenderCopy(renderer, textures[player == 'o' ? "cit_turn" : "cit"], nullptr, &cit_Rect);
+                    SDL_RenderCopy(renderer, textures[player == 'o' ? "coe" : "coe_turn"], nullptr, &coe_Rect);
                 }
                 else
                 {
-                    SDL_RenderCopy(renderer, textures["cit"], nullptr, &cit_Rect);         // cit
-                    SDL_RenderCopy(renderer, textures["coe_win"], nullptr, &coe_win_Rect); // coe wins
+                    // if there is a winner render the play again button and the win message
+                    SDL_RenderCopy(renderer, textures["again"], nullptr, &again_Rect); // again
+                    playAgainButton.renderButton(renderer);
+
+                    SDL_RenderCopy(renderer, textures[winner == 'o' ? "cit_win" : "cit"], nullptr, &cit_Rect);
+                    SDL_RenderCopy(renderer, textures[winner == 'o' ? "coe" : "coe_win"], nullptr, &coe_Rect);
                 }
             }
-
-            backButton.renderButton(renderer);
         }
-
         SDL_RenderPresent(renderer);
     }
-
     cleanup(window, renderer, textures);
     return 0;
 }
