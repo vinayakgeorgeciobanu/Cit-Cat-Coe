@@ -299,40 +299,42 @@ int main(int argc, char *argv[])
     // load title
     SDL_Rect title_Rect;
     textures["title"] = loadImage(renderer, "assets/title.bmp", title_Rect, (SCREEN_WIDTH - 582) / 2, 90, 582, 96);
+
     // load cat_stand image
     SDL_Rect cat_stand_Rect;
     textures["cat_stand"] = loadImage(renderer, "assets/cat_stand.bmp", cat_stand_Rect, 600, 450, 140, 100);
     // load cat2 image
     SDL_Rect cat_sit_Rect;
+
     textures["cat_sit"] = loadImage(renderer, "assets/cat_sit.bmp", cat_sit_Rect, 600, 450, 110, 110);
     // load twoplayer background
     SDL_Rect twoPlayer_BG_Rect;
     textures["twoPlayer_BG"] = loadImage(renderer, "assets/twoplayer.bmp", twoPlayer_BG_Rect, SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 + 60, 200, 80);
+
     // load back button background
     SDL_Rect backButton_BG_Rect;
     textures["backButton_BG"] = loadImage(renderer, "assets/back.bmp", backButton_BG_Rect, 20, 20, 40, 40);
+
     // load again image
     SDL_Rect again_Rect;
     textures["again"] = loadImage(renderer, "assets/again.bmp", again_Rect, 370, 490, 60, 60);
+
     // load cit image
     SDL_Rect cit_Rect;
     textures["cit"] = loadImage(renderer, "assets/cit.bmp", cit_Rect, 40, 250, 180, 90);
     // load cit_turn image
-    SDL_Rect cit_turn_Rect;
-    textures["cit_turn"] = loadImage(renderer, "assets/cit_turn.bmp", cit_turn_Rect, 40, 250, 180, 90);
+    textures["cit_turn"] = loadImage(renderer, "assets/cit_turn.bmp", cit_Rect, 40, 250, 180, 90);
     // load cit_win image
-    SDL_Rect cit_win_Rect;
-    textures["cit_win"] = loadImage(renderer, "assets/cit_win.bmp", cit_win_Rect, 40, 250, 180, 90);
+    textures["cit_win"] = loadImage(renderer, "assets/cit_win.bmp", cit_Rect, 40, 250, 180, 90);
 
     // load coe image
     SDL_Rect coe_Rect;
     textures["coe"] = loadImage(renderer, "assets/coe.bmp", coe_Rect, 570, 255, 180, 90);
     // load coe_turn image
-    SDL_Rect coe_turn_Rect;
     textures["coe_turn"] = loadImage(renderer, "assets/coe_turn.bmp", coe_Rect, 570, 255, 180, 90);
     // load coe_win image
-    SDL_Rect coe_win_Rect;
     textures["coe_win"] = loadImage(renderer, "assets/coe_win.bmp", coe_Rect, 570, 255, 180, 90);
+
     // error check for all the immages turned into textures
     for (auto &pair : textures)
     {
@@ -430,6 +432,13 @@ int main(int argc, char *argv[])
         }
         else if (currentState == STATE_ONE_GAME)
         {
+            // render the 3x3 board
+            mainBoard.renderBoard(renderer, refBoard.board, winner);
+            // render back button bg
+            SDL_RenderCopy(renderer, textures["backButton_BG"], nullptr, &backButton_BG_Rect);
+            backButton.renderButton(renderer);
+            // render cat sit img
+            SDL_RenderCopy(renderer, textures["cat_sit"], nullptr, &cat_sit_Rect);
         }
         else if (currentState == STATE_TWO_GAME)
         {
@@ -444,11 +453,11 @@ int main(int argc, char *argv[])
             if (refBoard.isFull())
             {
                 // render the play again button if there is a draw
-                SDL_RenderCopy(renderer, textures["again"], nullptr, &again_Rect); // again
+                SDL_RenderCopy(renderer, textures["again"], nullptr, &again_Rect);
                 playAgainButton.renderButton(renderer);
-
-                SDL_RenderCopy(renderer, textures["cit"], nullptr, &cit_Rect); // cit
-                SDL_RenderCopy(renderer, textures["coe"], nullptr, &coe_Rect); // coe
+                // render cit and coe
+                SDL_RenderCopy(renderer, textures["cit"], nullptr, &cit_Rect);
+                SDL_RenderCopy(renderer, textures["coe"], nullptr, &coe_Rect); 
             }
             else
             {
@@ -461,9 +470,9 @@ int main(int argc, char *argv[])
                 else
                 {
                     // if there is a winner render the play again button and the win message
-                    SDL_RenderCopy(renderer, textures["again"], nullptr, &again_Rect); // again
+                    SDL_RenderCopy(renderer, textures["again"], nullptr, &again_Rect);
                     playAgainButton.renderButton(renderer);
-
+                    // render cit or coe win message depending in winner
                     SDL_RenderCopy(renderer, textures[winner == 'o' ? "cit_win" : "cit"], nullptr, &cit_Rect);
                     SDL_RenderCopy(renderer, textures[winner == 'o' ? "coe" : "coe_win"], nullptr, &coe_Rect);
                 }
