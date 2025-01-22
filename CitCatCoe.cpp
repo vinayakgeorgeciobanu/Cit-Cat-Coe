@@ -294,6 +294,13 @@ int main(int argc, char *argv[])
         SDL_Quit();
         return -1;
     }
+    // load the icon
+    SDL_Surface *icon = SDL_LoadBMP("icon.bmp");
+    if (icon)
+    {
+        SDL_SetWindowIcon(window, icon);
+        SDL_FreeSurface(icon);
+    }
     // initialize a hash map for textures
     map<string, SDL_Texture *> textures;
     // load title
@@ -346,10 +353,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    GameState currentState = STATE_HOMEPAGE;
-    bool quit = false;
-    SDL_Event e;
-
     // initialize colors
     SDL_Color black = {0, 0, 0, 255};
     SDL_Color white = {255, 255, 255, 255};
@@ -365,6 +368,9 @@ int main(int argc, char *argv[])
     ReferenceBoard refBoard('-');
     char player = 'o', winner = '#';
 
+    GameState currentState = STATE_HOMEPAGE;
+    bool quit = false;
+    SDL_Event e;
     while (!quit)
     {
         while (SDL_PollEvent(&e) != 0)
@@ -457,7 +463,7 @@ int main(int argc, char *argv[])
                 playAgainButton.renderButton(renderer);
                 // render cit and coe
                 SDL_RenderCopy(renderer, textures["cit"], nullptr, &cit_Rect);
-                SDL_RenderCopy(renderer, textures["coe"], nullptr, &coe_Rect); 
+                SDL_RenderCopy(renderer, textures["coe"], nullptr, &coe_Rect);
             }
             else
             {
