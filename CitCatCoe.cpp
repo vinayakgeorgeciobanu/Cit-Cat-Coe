@@ -18,7 +18,7 @@ enum GameState
 };
 
 // function for loading textures
-SDL_Texture *loadImage(SDL_Renderer *renderer, const char *filePath, SDL_Rect &rect, int x, int y, int width, int height)
+SDL_Texture *loadImage(SDL_Renderer *renderer, const char *filePath)
 {
     // initialize image
     SDL_Surface *surface = SDL_LoadBMP(filePath);
@@ -30,7 +30,6 @@ SDL_Texture *loadImage(SDL_Renderer *renderer, const char *filePath, SDL_Rect &r
 
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_FreeSurface(surface);
-    rect = {x, y, width, height};
     return texture;
 }
 
@@ -41,9 +40,9 @@ private:
     SDL_Color outline;
 
 public:
-    Button(int x, int y, int w, int h, SDL_Color borderColor)
+    Button(SDL_Rect imgRect, SDL_Color borderColor)
     {
-        rect = {x, y, w, h};
+        rect = imgRect;
         outline = borderColor;
     }
     bool isClicked(int mouseX, int mouseY)
@@ -59,22 +58,45 @@ public:
     }
 };
 
+class Player
+{
+private:
+public:
+    char player;
+    char winner, win_type;
+    int win_index;
+
+    Player()
+    {
+        reset();
+    }
+    void reset()
+    {
+        player = 'o';
+        winner = '#';
+        win_type = '-';
+        win_index = 0;
+    }
+    void switchPlayer()
+    {
+        player = (player == 'o') ? 'x' : 'o';
+    }
+    void setWinner()
+    {
+        winner = player;
+    }
+};
+
 class ReferenceBoard
 {
 public:
     char board[3][3];
 
-    ReferenceBoard(char symbol)
+    ReferenceBoard()
     {
-        for (int i = 0; i < 3; i++)
-        {
-            for (int j = 0; j < 3; j++)
-            {
-                board[i][j] = symbol;
-            }
-        }
+        reset('-');
     }
-    void resetBoard(char symbol)
+    void reset(char symbol)
     {
         for (int i = 0; i < 3; i++)
         {
@@ -105,21 +127,33 @@ public:
         }
         return false;
     }
-    bool checkWin(char symbol) const
+    bool checkWin(Player &curr) const
     {
         // check rows and columns
         for (int i = 0; i < 3; ++i)
         {
-            if ((board[i][0] == symbol && board[i][1] == symbol && board[i][2] == symbol) ||
-                (board[0][i] == symbol && board[1][i] == symbol && board[2][i] == symbol))
+            if (board[i][0] == curr.player && board[i][1] == curr.player && board[i][2] == curr.player)
             {
+                curr.win_index = i;
+                curr.win_type = 'h';
+                return true;
+            }
+            if (board[0][i] == curr.player && board[1][i] == curr.player && board[2][i] == curr.player)
+            {
+                curr.win_index = i;
+                curr.win_type = 'v';
                 return true;
             }
         }
         // check diagonals
-        if ((board[0][0] == symbol && board[1][1] == symbol && board[2][2] == symbol) ||
-            (board[0][2] == symbol && board[1][1] == symbol && board[2][0] == symbol))
+        if (board[0][0] == curr.player && board[1][1] == curr.player && board[2][2] == curr.player)
         {
+            curr.win_type = 'm';
+            return true;
+        }
+        if (board[0][2] == curr.player && board[1][1] == curr.player && board[2][0] == curr.player)
+        {
+            curr.win_type = 's';
             return true;
         }
         return false;
@@ -131,6 +165,21 @@ class Board
 private:
     SDL_Rect rect;
     int cellSize;
+
+    void drawX(SDL_Renderer *renderer, int x1, int y1, int x2, int y2)
+    {
+        SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
+        SDL_RenderDrawLine(renderer, x2, y1, x1, y2);
+    }
+    void drawO(SDL_Renderer *renderer, int x, int y, int radius)
+    {
+        for (int angle = 0; angle < 360; angle++)
+        {
+            int dx = static_cast<int>(radius * cos(angle * M_PI / 180));
+            int dy = static_cast<int>(radius * sin(angle * M_PI / 180));
+            SDL_RenderDrawPoint(renderer, x + dx, y + dy);
+        }
+    }
 
 public:
     Board(int x, int y, int w, int h)
@@ -148,31 +197,7 @@ public:
         row = (mouseY - rect.y) / cellSize;
         col = (mouseX - rect.x) / cellSize;
     }
-    void winFind(char XOBoard[3][3], int &index, int &type, char symbol)
-    {
-        for (int i = 0; i < 3; i++)
-        {
-            if (XOBoard[i][0] == symbol && XOBoard[i][1] == symbol && XOBoard[i][2] == symbol)
-            {
-                index = i;
-                type = 2;
-            }
-            if (XOBoard[0][i] == symbol && XOBoard[1][i] == symbol && XOBoard[2][i] == symbol)
-            {
-                index = i;
-                type = -2;
-            }
-        }
-        if (XOBoard[0][0] == symbol && XOBoard[1][1] == symbol && XOBoard[2][2] == symbol)
-        {
-            type = 1;
-        }
-        if (XOBoard[0][2] == symbol && XOBoard[1][1] == symbol && XOBoard[2][0] == symbol)
-        {
-            type = -1;
-        }
-    }
-    void renderBoard(SDL_Renderer *renderer, char XOBoard[3][3], char winner)
+    void renderBoard(SDL_Renderer *renderer, char XOBoard[3][3], Player curr)
     {
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
         SDL_RenderClear(renderer);
@@ -191,7 +216,8 @@ public:
 
         // draw X and O
         for (int i = 0; i < 3; i++)
-        { // Loop through rows
+        {
+            // Loop through rows
             for (int j = 0; j < 3; j++)
             {
                 int x = rect.x + j * cellSize + cellSize / 2;
@@ -208,46 +234,24 @@ public:
             }
         }
         // check for win and find from where to where to draw win line
-        if (winner != '#')
+        if (curr.winner != '#')
         {
-            int i = 0, type = 0;
-            // type:
-            //  1 - main diagonal
-            // -1 - secondary diagonal
-            //  2 - horizontal
-            // -2 - vertical
-            winFind(XOBoard, i, type, winner);
-
-            if (type == 1) // main diagonal win line
+            if (curr.win_type == 'm') // main diagonal win line
             {
                 SDL_RenderDrawLine(renderer, rect.x, rect.y, rect.x + rect.w, rect.y + rect.w);
             }
-            else if (type == -1) // secondary diagonal win line
+            else if (curr.win_type == 's') // secondary diagonal win line
             {
                 SDL_RenderDrawLine(renderer, rect.x + rect.w, rect.y, rect.x, rect.y + rect.w);
             }
-            else if (type == 2) // horizontal win line
+            else if (curr.win_type == 'h') // horizontal win line
             {
-                SDL_RenderDrawLine(renderer, rect.x, rect.y + (i + 0.5) * cellSize, rect.x + rect.w, rect.y + (i + 0.5) * cellSize);
+                SDL_RenderDrawLine(renderer, rect.x, rect.y + (curr.win_index + 0.5) * cellSize, rect.x + rect.w, rect.y + (curr.win_index + 0.5) * cellSize);
             }
-            else if (type == -2) // verical win line
+            else if (curr.win_type == 'v') // verical win line
             {
-                SDL_RenderDrawLine(renderer, rect.x + (i + 0.5) * cellSize, rect.y, rect.x + (i + 0.5) * cellSize, rect.y + rect.w);
+                SDL_RenderDrawLine(renderer, rect.x + (curr.win_index + 0.5) * cellSize, rect.y, rect.x + (curr.win_index + 0.5) * cellSize, rect.y + rect.w);
             }
-        }
-    }
-    void drawX(SDL_Renderer *renderer, int x1, int y1, int x2, int y2)
-    {
-        SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
-        SDL_RenderDrawLine(renderer, x2, y1, x1, y2);
-    }
-    void drawO(SDL_Renderer *renderer, int x, int y, int radius)
-    {
-        for (int angle = 0; angle < 360; angle++)
-        {
-            int dx = static_cast<int>(radius * cos(angle * M_PI / 180));
-            int dy = static_cast<int>(radius * sin(angle * M_PI / 180));
-            SDL_RenderDrawPoint(renderer, x + dx, y + dy);
         }
     }
 };
@@ -304,43 +308,46 @@ int main(int argc, char *argv[])
     // initialize a hash map for textures
     map<string, SDL_Texture *> textures;
     // load title
-    SDL_Rect title_Rect;
-    textures["title"] = loadImage(renderer, "assets/title.bmp", title_Rect, (SCREEN_WIDTH - 582) / 2, 90, 582, 96);
+    SDL_Rect title_Rect = {(SCREEN_WIDTH - 582) / 2, 90, 582, 96};
+    textures["title"] = loadImage(renderer, "assets/title.bmp");
 
     // load cat_stand image
-    SDL_Rect cat_stand_Rect;
-    textures["cat_stand"] = loadImage(renderer, "assets/cat_stand.bmp", cat_stand_Rect, 600, 450, 140, 100);
+    SDL_Rect cat_stand_Rect = {600, 450, 140, 100};
+    textures["cat_stand"] = loadImage(renderer, "assets/cat_stand.bmp");
     // load cat2 image
-    SDL_Rect cat_sit_Rect;
+    SDL_Rect cat_sit_Rect = {600, 450, 110, 110};
+    textures["cat_sit"] = loadImage(renderer, "assets/cat_sit.bmp");
 
-    textures["cat_sit"] = loadImage(renderer, "assets/cat_sit.bmp", cat_sit_Rect, 600, 450, 110, 110);
     // load twoplayer background
-    SDL_Rect twoPlayer_BG_Rect;
-    textures["twoPlayer_BG"] = loadImage(renderer, "assets/twoplayer.bmp", twoPlayer_BG_Rect, SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 + 60, 200, 80);
+    SDL_Rect twoPlayer_BG_Rect = {SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 + 60, 200, 80};
+    textures["twoPlayer_BG"] = loadImage(renderer, "assets/twoplayer.bmp");
+    // load one player background
+    SDL_Rect onePlayer_BG_Rect = {SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 50, 200, 80};
+    textures["onePlayer_BG_Rect"] = loadImage(renderer, "assets/twoplayer.bmp");
 
     // load back button background
-    SDL_Rect backButton_BG_Rect;
-    textures["backButton_BG"] = loadImage(renderer, "assets/back.bmp", backButton_BG_Rect, 20, 20, 40, 40);
+    SDL_Rect backButton_BG_Rect = {20, 20, 40, 40};
+    textures["backButton_BG"] = loadImage(renderer, "assets/back.bmp");
 
     // load again image
-    SDL_Rect again_Rect;
-    textures["again"] = loadImage(renderer, "assets/again.bmp", again_Rect, 370, 490, 60, 60);
+    SDL_Rect playAgain_Rect = {370, 490, 60, 60};
+    textures["playAgain"] = loadImage(renderer, "assets/playAgain.bmp");
 
     // load cit image
-    SDL_Rect cit_Rect;
-    textures["cit"] = loadImage(renderer, "assets/cit.bmp", cit_Rect, 40, 250, 180, 90);
+    SDL_Rect cit_Rect = {40, 250, 180, 90};
+    textures["cit"] = loadImage(renderer, "assets/cit.bmp");
     // load cit_turn image
-    textures["cit_turn"] = loadImage(renderer, "assets/cit_turn.bmp", cit_Rect, 40, 250, 180, 90);
+    textures["cit_turn"] = loadImage(renderer, "assets/cit_turn.bmp");
     // load cit_win image
-    textures["cit_win"] = loadImage(renderer, "assets/cit_win.bmp", cit_Rect, 40, 250, 180, 90);
+    textures["cit_win"] = loadImage(renderer, "assets/cit_win.bmp");
 
     // load coe image
-    SDL_Rect coe_Rect;
-    textures["coe"] = loadImage(renderer, "assets/coe.bmp", coe_Rect, 570, 255, 180, 90);
+    SDL_Rect coe_Rect = {570, 255, 180, 90};
+    textures["coe"] = loadImage(renderer, "assets/coe.bmp");
     // load coe_turn image
-    textures["coe_turn"] = loadImage(renderer, "assets/coe_turn.bmp", coe_Rect, 570, 255, 180, 90);
+    textures["coe_turn"] = loadImage(renderer, "assets/coe_turn.bmp");
     // load coe_win image
-    textures["coe_win"] = loadImage(renderer, "assets/coe_win.bmp", coe_Rect, 570, 255, 180, 90);
+    textures["coe_win"] = loadImage(renderer, "assets/coe_win.bmp");
 
     // error check for all the immages turned into textures
     for (auto &pair : textures)
@@ -358,15 +365,15 @@ int main(int argc, char *argv[])
     SDL_Color white = {255, 255, 255, 255};
 
     // initialize the buttons
-    Button onePlayerButton(SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 50, 200, 80, white);
-    Button twoPlayerButton(SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 + 60, 200, 80, white);
-    Button backButton(20, 20, 40, 40, black);
-    Button playAgainButton(370, 490, 60, 60, black);
+    Button onePlayerButton(onePlayer_BG_Rect, white);
+    Button twoPlayerButton(twoPlayer_BG_Rect, white);
+    Button backButton(backButton_BG_Rect, black);
+    Button playAgainButton(playAgain_Rect, black);
     //  initialize the 3x3 board
     Board mainBoard((SCREEN_WIDTH - 300) / 2, (SCREEN_HEIGHT - 300) / 2, 300, 300);
     // initialize the reference board
-    ReferenceBoard refBoard('-');
-    char player = 'o', winner = '#';
+    ReferenceBoard refBoard;
+    Player twoPlayer;
 
     GameState currentState = STATE_HOMEPAGE;
     bool quit = false;
@@ -389,26 +396,26 @@ int main(int argc, char *argv[])
                     // reset reffrence board and player order if play again or back button button pressed
                     if (playAgainButton.isClicked(mouseX, mouseY) || backButton.isClicked(mouseX, mouseY))
                     {
-                        refBoard.resetBoard('-');
-                        winner = '#';
-                        player = 'o';
+                        refBoard.reset('-');
+                        twoPlayer.reset();
                         // if back button pressed chang state to homepaage
                         if (backButton.isClicked(mouseX, mouseY))
                         {
                             currentState = STATE_HOMEPAGE;
                         }
                     }
-                    if (mainBoard.isClicked(mouseX, mouseY) && winner == '#')
+                    if (mainBoard.isClicked(mouseX, mouseY) && twoPlayer.winner == '#')
                     {
                         int row, col;
                         mainBoard.findCell(mouseX, mouseY, row, col);
-                        if (refBoard.fillCell(row, col, player))
+                        if (refBoard.fillCell(row, col, twoPlayer.player))
                         {
-                            if (refBoard.checkWin(player))
+                            // check if there is a winner and finds the index and type of win
+                            if (refBoard.checkWin(twoPlayer))
                             {
-                                winner = player;
+                                twoPlayer.setWinner();
                             }
-                            player = (player == 'o') ? 'x' : 'o';
+                            twoPlayer.switchPlayer();
                         }
                     }
                 }
@@ -432,6 +439,8 @@ int main(int argc, char *argv[])
             SDL_RenderCopy(renderer, textures["cat_stand"], nullptr, &cat_stand_Rect);
             // render two player bg
             SDL_RenderCopy(renderer, textures["twoPlayer_BG"], nullptr, &twoPlayer_BG_Rect);
+            // render one player bg
+            SDL_RenderCopy(renderer, textures["onePlayer_BG"], nullptr, &onePlayer_BG_Rect);
             // render game modes buttons
             onePlayerButton.renderButton(renderer);
             twoPlayerButton.renderButton(renderer);
@@ -439,7 +448,7 @@ int main(int argc, char *argv[])
         else if (currentState == STATE_ONE_GAME)
         {
             // render the 3x3 board
-            mainBoard.renderBoard(renderer, refBoard.board, winner);
+            mainBoard.renderBoard(renderer, refBoard.board, twoPlayer);
             // render back button bg
             SDL_RenderCopy(renderer, textures["backButton_BG"], nullptr, &backButton_BG_Rect);
             backButton.renderButton(renderer);
@@ -449,7 +458,7 @@ int main(int argc, char *argv[])
         else if (currentState == STATE_TWO_GAME)
         {
             // render the 3x3 board
-            mainBoard.renderBoard(renderer, refBoard.board, winner);
+            mainBoard.renderBoard(renderer, refBoard.board, twoPlayer);
             // render back button bg
             SDL_RenderCopy(renderer, textures["backButton_BG"], nullptr, &backButton_BG_Rect);
             backButton.renderButton(renderer);
@@ -459,7 +468,7 @@ int main(int argc, char *argv[])
             if (refBoard.isFull())
             {
                 // render the play again button if there is a draw
-                SDL_RenderCopy(renderer, textures["again"], nullptr, &again_Rect);
+                SDL_RenderCopy(renderer, textures["playAgain"], nullptr, &playAgain_Rect);
                 playAgainButton.renderButton(renderer);
                 // render cit and coe
                 SDL_RenderCopy(renderer, textures["cit"], nullptr, &cit_Rect);
@@ -467,20 +476,20 @@ int main(int argc, char *argv[])
             }
             else
             {
-                if (winner == '#')
+                if (twoPlayer.winner == '#')
                 {
                     // if there is no winner render the players depending on their turn
-                    SDL_RenderCopy(renderer, textures[player == 'o' ? "cit_turn" : "cit"], nullptr, &cit_Rect);
-                    SDL_RenderCopy(renderer, textures[player == 'o' ? "coe" : "coe_turn"], nullptr, &coe_Rect);
+                    SDL_RenderCopy(renderer, textures[twoPlayer.player == 'o' ? "cit_turn" : "cit"], nullptr, &cit_Rect);
+                    SDL_RenderCopy(renderer, textures[twoPlayer.player == 'o' ? "coe" : "coe_turn"], nullptr, &coe_Rect);
                 }
                 else
                 {
                     // if there is a winner render the play again button and the win message
-                    SDL_RenderCopy(renderer, textures["again"], nullptr, &again_Rect);
+                    SDL_RenderCopy(renderer, textures["playAgain"], nullptr, &playAgain_Rect);
                     playAgainButton.renderButton(renderer);
                     // render cit or coe win message depending in winner
-                    SDL_RenderCopy(renderer, textures[winner == 'o' ? "cit_win" : "cit"], nullptr, &cit_Rect);
-                    SDL_RenderCopy(renderer, textures[winner == 'o' ? "coe" : "coe_win"], nullptr, &coe_Rect);
+                    SDL_RenderCopy(renderer, textures[twoPlayer.winner == 'o' ? "cit_win" : "cit"], nullptr, &cit_Rect);
+                    SDL_RenderCopy(renderer, textures[twoPlayer.winner == 'o' ? "coe" : "coe_win"], nullptr, &coe_Rect);
                 }
             }
         }
