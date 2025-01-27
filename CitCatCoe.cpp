@@ -2,8 +2,8 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
-#include <map>
 #include <cmath>
+#include <map>
 
 using namespace std;
 
@@ -447,13 +447,6 @@ int main(int argc, char *argv[])
         }
         else if (currentState == STATE_ONE_GAME)
         {
-            // render the 3x3 board
-            mainBoard.renderBoard(renderer, refBoard.board, twoPlayer);
-            // render back button bg
-            SDL_RenderCopy(renderer, textures["backButton_BG"], nullptr, &backButton_BG_Rect);
-            backButton.renderButton(renderer);
-            // render cat sit img
-            SDL_RenderCopy(renderer, textures["cat_sit"], nullptr, &cat_sit_Rect);
         }
         else if (currentState == STATE_TWO_GAME)
         {
